@@ -1,0 +1,2 @@
+async function ltCheck(text){const r=await fetch('https://api.languagetool.org/v2/check',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({text,language:'en-US'})});
+if(r.status===429)throw new Error('LanguageTool rate limit reached. Try again in a minute.');if(!r.ok)throw new Error('LanguageTool is unavailable.');return (await r.json()).matches}
