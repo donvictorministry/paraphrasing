@@ -1,66 +1,456 @@
-const $=s=>document.querySelector(s),ed=$('#ed'),out=$('#out');
-const I={para:'<path d="M4 7h12M4 12h8M4 17h12M18 9l3 3-3 3"/>',sum:'<path d="M4 6h16M4 12h10M4 18h6"/>',gram:'<path d="M4 18l5-12 5 12M6 14h6M16 15l2 2 4-5"/>',cite:'<path d="M7 7h4v4H7zM13 7h4v4h-4zM7 11c0 3-1 4-2 5M13 11c0 3-1 4-2 5"/>',bib:'<path d="M5 4h12a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2zM9 8h6"/>',file:'<path d="M6 3h8l4 4v14H6zM14 3v4h4"/>',back:'<path d="M15 5l-7 7 7 7"/>',up:'<path d="M5 15l7-7 7 7"/>',dn:'<path d="M5 9l7 7 7-7"/>',moon:'<path d="M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10z"/>',inst:'<path d="M12 4v11M7 11l5 5 5-5M5 20h14"/>',share:'<circle cx="6" cy="12" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="M8 11l8-4M8 13l8 4"/>',exit:'<path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',mail:'<path d="M3 6h18v12H3zM3 7l9 7 9-7"/>',wa:'<path d="M4 20l1.5-4.5A8 8 0 1 1 9 19z"/>',tel:'<path d="M5 4h4l2 5-2 1a11 11 0 0 0 5 5l1-2 5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',fb:'<path d="M14 21v-8h3l.5-3H14V8c0-1 .5-2 2-2h1.5V3.2A18 18 0 0 0 15 3c-2.500 0-4 1.500-4 4v3H8v3h3v8z"/>'};
-const ico=n=>`<svg viewBox="0 0 24 24">${I[n]||I.info}</svg>`;
-if(!/Android/i.test(navigator.userAgent)||!('ontouchstart' in window))$('#block').style.display='grid';
-function dlg(t,m,btns=[['OK']]){return new Promise(r=>{const d=$('#dlg');d.innerHTML=`<div class="dbox"><h3>${t}</h3><p>${m}</p></div>`;btns.forEach((b,i)=>{const e=document.createElement('button');e.textContent=b[0];if(b[1])e.className='s';e.onclick=()=>{d.classList.remove('on');r(i)};d.firstChild.append(e)});d.classList.add('on')})}
-const busy=async f=>{$('#load').classList.add('on');try{return await f()}catch(e){await dlg('Something went wrong',navigator.onLine?e.message:'You are offline. This feature needs an internet connection.')}finally{$('#load').classList.remove('on')}};
-const esc=s=>s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-const need=()=>{const t=ed.value.trim();if(!t){dlg('Nothing to process','Write or paste some text first.');return null}return t};
-/* IndexedDB */
-const db=new Promise(r=>{const q=indexedDB.open('dvwa',1);q.onupgradeneeded=()=>{q.result.createObjectStore('files',{keyPath:'id',autoIncrement:true});q.result.createObjectStore('bib',{keyPath:'id',autoIncrement:true})};q.onsuccess=()=>r(q.result)});
-const tx=async(s,m,f)=>{const d=await db;return new Promise(r=>{const q=f(d.transaction(s,m).objectStore(s));q.onsuccess=()=>r(q.result)})};
-const put=(s,v)=>tx(s,'readwrite',o=>o.put(v)),all=s=>tx(s,'readonly',o=>o.getAll()),del=(s,k)=>tx(s,'readwrite',o=>o.delete(k));
-/* tools */
-const T=[['para','Paraphrase'],['sum','Summarize'],['gram','Check Grammar'],['cite','Generate Citation'],['bib','Bibliography'],['file','Saved Files']];
-$('#tools').innerHTML=T.map(t=>`<button data-a="${t[0]}">${ico(t[0])}${t[1]}</button>`).join('');
-const card=(h,b='')=>{const d=document.createElement('div');d.className='res';d.innerHTML=h+b;out.prepend(d);return d};
-const act={
-para:()=>{const t=need();t&&busy(async()=>{out.innerHTML='';(await paraphrase(t)).forEach((p,i)=>{const c=card(`<p>${esc(p)}</p>`,'<button>Use this</button>');c.querySelector('button').onclick=()=>{ed.value=p}})})},
-sum:()=>{const t=need();t&&busy(async()=>{out.innerHTML='';const s=await summarize(t);const c=card(`<p>${esc(s)}</p>`,'<button>Use this</button>');c.querySelector('button').onclick=()=>{ed.value=s}})},
-gram:()=>{const t=need();t&&busy(async()=>{out.innerHTML='';const m=await ltCheck(t);if(!m.length)return dlg('Looks good','No grammar issues found.');let h='',p=0;m.forEach((x,i)=>{h+=esc(t.slice(p,x.offset))+`<mark data-i="${i}">${esc(t.substr(x.offset,x.length))}</mark>`;p=x.offset+x.length});h+=esc(t.slice(p));const c=card(h);
-c.querySelectorAll('mark').forEach(k=>k.onclick=async()=>{const x=m[k.dataset.i],s=x.replacements.slice(0,4).map(r=>r.value);const i=await dlg(esc(x.shortMessage||'Suggestion'),esc(x.message),s.map(v=>[v]).concat([['Ignore',1]]));if(i<s.length){k.replaceWith(s[i]);ed.value=c.textContent}})})},
-cite:async()=>{const q=await ask('Generate citation','Enter a DOI or ISBN');q&&busy(async()=>{const m=await fetchMeta(q);out.innerHTML='';[['APA',apa(m)],['MLA',mla(m)]].forEach(([n,s])=>{const c=card(`<b>${n}</b><p>${esc(s)}</p>`,'<button>Add to bibliography</button>');c.querySelector('button').onclick=async()=>{await put('bib',{text:s,style:n});dlg('Added','Citation saved to your bibliography.')}})})},
-bib:()=>open('bib'),file:()=>open('files')};
-document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(b)act[b.dataset.a]()});
-function ask(t,m){return new Promise(r=>{const d=$('#dlg');d.innerHTML=`<div class="dbox"><h3>${t}</h3><p>${m}</p><input id="qi" style="width:100%;padding:12px;margin-bottom:12px;border:1px solid var(--ol);border-radius:12px;background:var(--sf);color:var(--tx)"></div>`;[['Cancel',1],['Go']].forEach((b,i)=>{const e=document.createElement('button');e.textContent=b[0];if(b[1])e.className='s';e.onclick=()=>{d.classList.remove('on');r(i?$('#qi').value:null)};d.firstChild.append(e)});d.classList.add('on')})}
-$('#paste').onclick=async()=>{try{ed.value+=await navigator.clipboard.readText()}catch{dlg('Paste blocked','Long-press the text box and choose Paste.')}};
-$('#copy').onclick=async()=>{try{await navigator.clipboard.writeText(ed.value);dlg('Copied','Text copied to clipboard.')}catch{dlg('Copy failed','Select the text and copy manually.')}};
-$('#save').onclick=async()=>{const t=need();if(t){await put('files',{text:t,date:new Date().toLocaleString()});dlg('Saved','Draft stored on this device.')}};
-/* pages */
-const P=(...a)=>a.map(x=>`<p>${x}</p>`).join(''),U=a=>`<ul>${a.map(x=>`<li>${x}</li>`).join('')}</ul>`;
-const PG={
-about:['About the App',P('DV-Writing Assistant is a free writing companion built for Android phones. It helps you refine drafts, rephrase sentences, shorten long passages, fix grammar and cite sources without leaving your browser.')+'<h3>What you can do</h3>'+U(['<b>Paraphrase:</b> get three alternative wordings of any passage.','<b>Summarize:</b> condense long text into a short, clear summary.','<b>Check Grammar:</b> see mistakes highlighted inline and tap to fix them.','<b>Generate Citation:</b> create APA and MLA references from a DOI or ISBN.','<b>Bibliography:</b> collect citations, copy them and export plain text.'])+'<h3>Built for real life</h3>'+P('Your drafts are saved on your own device. The interface works offline, and online tools tell you plainly when they need a connection.','Version 1.0. Replace this text with your organization name and official description.')],
-dev:['About Developer','DEV'],
-why:['Why I Built This',P('Good writing tools are often locked behind subscriptions, heavy desktop software or fast connections. Many students and professionals write mostly on a phone, with limited data. That gap is why this app exists.')+'<h3>The problem</h3>'+P('Paraphrasing, grammar checking and citation formatting usually mean switching between three or four websites, each with its own limits and paywalls.')+'<h3>The goal</h3>'+U(['One simple screen for the everyday writing jobs.','Free tools wherever possible, with no hidden keys or accounts.','Fast on mid-range Android phones and usable offline.','Your text stays under your control.'])+P('Replace this page with your own story: who you are, what inspired you, and who you want to help.')],
-team:['Meet Our Team','TEAM'],
-how:['How to Use',P('Everything starts in the main text box.')+'<h3>Write or paste</h3>'+P('Type your draft, or tap the plus button to paste text you copied elsewhere.')+'<h3>Pick a tool</h3>'+U(['<b>Paraphrase:</b> tap, wait for three options, then tap Use this to replace your text.','<b>Summarize:</b> works best on a paragraph or longer.','<b>Check Grammar:</b> tap any highlighted word to see corrections.','<b>Generate Citation:</b> enter a DOI such as 10.1038/nature14539, or an ISBN, then choose APA or MLA.'])+'<h3>Save and share</h3>'+U(['Tap the green check button to save a draft on your device.','Open Saved Files from the right menu to continue later.','In Bibliography, delete entries or export everything as plain text.','Use the copy button to copy your text to the clipboard.'])+'<h3>Personalize</h3>'+P('Open the three-dot menu to switch dark mode or change text size.')+'<h3>Offline</h3>'+P('Editing, saving and bibliography work without internet. Paraphrase, summarize, grammar and citation lookup need a connection.')],
-terms:['Terms of Use',P('Last updated: replace with date. By using DV-Writing Assistant you agree to these terms.')+'<h3>1. Acceptable use</h3>'+P('Use the app lawfully. Do not submit content that is illegal, abusive or infringes the rights of others.')+'<h3>2. Your content</h3>'+P('You own your text. Drafts are stored locally on your device in your browser, and clearing browser data removes them.')+'<h3>3. Third-party services</h3>'+P('When you use online tools, the text or reference you enter is sent to LanguageTool, Hugging Face, Crossref or Open Library to process your request. Do not submit confidential or sensitive material.')+'<h3>4. Accuracy</h3>'+P('Paraphrases, summaries, grammar suggestions and citations are generated automatically and may contain errors. Review them before submitting academic or professional work.')+'<h3>5. Academic integrity</h3>'+P('You are responsible for following your institution\'s rules on paraphrasing tools and for crediting sources.')+'<h3>6. No warranty</h3>'+P('The app is provided as is, without guarantees of availability. Free services may be rate limited or unavailable.')+'<h3>7. Changes and contact</h3>'+P('We may update these terms. Questions? Visit Contact Us. This is a template: have it reviewed by a qualified professional before publishing.')],
-sup:['Support Us','SOC'],con:['Contact Us','SOC']};
-const SOCP={sup:P('DV-Writing Assistant is free to use. Your support helps us cover hosting, improve accuracy and add features.')+'<h3>Ways to help</h3>'+U(['<b>Share the app</b> with classmates, colleagues and friends.','<b>Send feedback</b> on bugs and feature ideas.','<b>Donate</b> through the channels below once you add your details.','<b>Partner with us:</b> schools and organizations are welcome.'])+P('Tap a channel below to reach us.'),con:P('We would love to hear from you.')+'<h3>Reach us</h3>'+U(['Email: you@example.com (replace)','WhatsApp: +000 000 000 000 (replace)','Phone: +000 000 000 000 (replace)','Facebook: your-page (replace)'])+'<h3>Response time</h3>'+P('We reply within two working days. For bug reports, tell us your Android version and what you tapped.')+P('Tap a channel below to get in touch.')};
-const soc=`<div class="soc"><a href="mailto:you@example.com" style="background:#EA4335">${ico('mail')}</a><a href="https://wa.me/0000000000" style="background:#25D366">${ico('wa')}</a><a href="tel:+0000000000" style="background:#1A73E8">${ico('tel')}</a><a href="https://facebook.com/your-page" style="background:#1877F2">${ico('fb')}</a></div>`;
-const DEV={n:'Your Name Here',r:'Founder and Lead Developer',b:'Replace with your story. I am a developer focused on building simple, fast tools that work well on everyday Android phones. I care about accessibility, clear writing and software that respects people\'s data.\nMy work spans front-end development, web apps that work offline, and tools for education. I started this project after seeing classmates juggle several websites just to polish one assignment.\nWhen I am not coding I mentor beginners, read, and test apps on the cheapest phones I can find.\nI believe good tools should be free to try, easy to learn and honest about their limits.'};
-const TEAM=[['Amina Okafor','Project Manager','Keeps the roadmap on track and turns user feedback into priorities. Replace with a real biography, experience and what this person loves about the project.'],['Daniel Mensah','Front-End Engineer','Builds the interface and keeps it fast on low-end phones. Replace with a real biography and a favorite project.'],['Sofia Alvarez','UX and Material Designer','Designs layouts, colors and interactions that feel natural on a small screen. Replace with real details.'],['Kwame Boateng','Language and NLP Specialist','Tests paraphrase and summary quality and chooses the models behind them. Replace with real details.'],['Fatima Yusuf','Content and Research Lead','Writes help content and checks that citations follow APA and MLA rules. Replace with real details.'],['Liam Carter','Quality and Accessibility Tester','Tests on many Android devices and makes sure text stays readable. Replace with real details.'],['Grace Nwosu','Community and Support Manager','Answers messages, collects feedback and welcomes new users. Replace with real details.']];
-const pc=(w,ring,n,r,b)=>`<div class="pc">${ring?'<div class="ring">':''}<img src="https://example.com/photo-placeholder.png" width="${w}" height="${w}" alt="${n}">${ring?'</div>':''}<h3>${n}</h3><p><b>${r}</b></p><p class="more">${b.replace(/\n/g,'<br><br>')}</p><button class="t">Show more</button></div>`;
-function open(id){const pg=document.createElement('div');pg.className='page on';let b='',t='';
-if(id==='bib'||id==='files'){t=id==='bib'?'Bibliography':'Saved Files';all(id).then(rows=>{const bd=pg.querySelector('.body');bd.innerHTML=(id==='bib'?'<button class="t" id="ex" style="color:var(--p);font-weight:700;padding:10px">Export plain text</button>':'')+(rows.map(r=>`<div class="res"><p>${esc(r.text)}</p><button data-k="${r.id}" data-r="x">Open</button><button data-k="${r.id}" data-d="1">Delete</button></div>`).join('')||'<p>Nothing here yet.</p>');
-bd.querySelectorAll('[data-d]').forEach(x=>x.onclick=async()=>{await del(id,+x.dataset.k);pg.remove();open(id)});bd.querySelectorAll('[data-r]').forEach(x=>x.onclick=()=>{ed.value=rows.find(r=>r.id==x.dataset.k).text;pg.remove()});if(id==='bib'&&$('#ex'))$('#ex').onclick=async()=>{const s=rows.map(r=>r.text).join('\n\n');try{await navigator.clipboard.writeText(s)}catch{}const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([s],{type:'text/plain'}));a.download='bibliography.txt';a.click()}})}
-else{const [h,c]=PG[id];t=h;b=c==='DEV'?pc(160,1,DEV.n,DEV.r,DEV.b):c==='TEAM'?TEAM.map(t=>pc(150,0,t[0],t[1],t[2])).join(''):c==='SOC'?SOCP[id]+soc:c}
-pg.innerHTML=`<div class="bar"><button class="bk">${ico('back')}</button>${t}</div><div class="body">${b}</div>`+(id==='team'?`<div class="fab"><button id="u">${ico('up')}</button><button id="d">${ico('dn')}</button></div>`:'');
-document.body.append(pg);history.pushState({p:1},'');pg.querySelector('.bk').onclick=()=>history.back();pg._c=()=>pg.remove();
-pg.querySelectorAll('.t').forEach(x=>{if(x.id)return;x.onclick=()=>{const m=x.previousElementSibling;m.classList.toggle('open');x.textContent=m.classList.contains('open')?'Show less':'Show more'}});
-if(id==='team'){pg.querySelector('#u').onclick=()=>pg.scrollBy({top:-pg.clientHeight*.8,behavior:'smooth'});pg.querySelector('#d').onclick=()=>pg.scrollBy({top:pg.clientHeight*.8,behavior:'smooth'})}
-if(['bib','files'].includes(id)===false&&false)0}
-addEventListener('popstate',()=>{const p=[...document.querySelectorAll('.page')].pop();p&&p.remove()});
-/* drawers */
-const sc=$('#scrim'),close=()=>{['#dl','#dr'].forEach(s=>$(s).classList.remove('on'));sc.classList.remove('on')},show=s=>{$(s).classList.add('on');sc.classList.add('on')};sc.onclick=close;
-$('#menuL').onclick=()=>show('#dl');$('#menuR').onclick=()=>show('#dr');
-$('#dl').innerHTML=Object.entries(PG).map(([k,v])=>`<button data-p="${k}">${ico('info')}${v[0]}</button>`).join('');
-$('#dr').innerHTML=`<label>${ico('moon')}Dark mode<input type="checkbox" id="dk" style="margin-left:auto;width:28px;height:28px"></label><label style="flex-wrap:wrap">Text size<input type="range" id="fs" min="19" max="23" value="19"></label><button data-s="files">${ico('file')}Saved Files</button><button data-s="inst">${ico('inst')}Install App</button><button data-s="share">${ico('share')}Share App</button><button data-s="exit">${ico('exit')}Exit</button>`;
-document.addEventListener('click',e=>{const p=e.target.closest('[data-p]');if(p){close();open(p.dataset.p)}const s=e.target.closest('[data-s]');if(s){close();({files:()=>open('files'),inst:async()=>{if(window._ip){_ip.prompt()}else dlg('Install','Open the browser menu and choose Add to Home screen.')},share:async()=>{try{await navigator.share({title:'DV-Writing Assistant',url:location.href})}catch{dlg('Share','Copy the page link to share this app.')}},exit:async()=>{if(await dlg('Exit','Close the app?',[['Exit'],['Stay',1]])===0){close();window.close()}}})[s.dataset.s]()}});
-$('#dk').onchange=e=>{document.body.classList.toggle('dark',e.target.checked);localStorage.dk=+e.target.checked};
-$('#fs').oninput=e=>{document.documentElement.style.setProperty('--fs',e.target.value+'px');localStorage.fs=e.target.value};
-if(+localStorage.dk){document.body.classList.add('dark');$('#dk').checked=true}if(localStorage.fs){$('#fs').value=localStorage.fs;document.documentElement.style.setProperty('--fs',localStorage.fs+'px')}
-addEventListener('beforeinstallprompt',e=>{e.preventDefault();window._ip=e});
-addEventListener('offline',()=>dlg('Offline','You are offline. Editing and saved files still work; online tools are paused.'));
-ed.value='Me and my friends goes to the library yesterday to studys for the exam. The research on climate change have shown that global temperatures is rising faster then expected, and this effect many communities around the world. Scientists says action is needed now.';
-if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+import { checkGrammar, renderGrammarErrors } from './language-tool.js';
+import { fetchCitationByDOI, fetchCitationByBookTitle } from './citation.js';
+import { getParaphrasedAlternatives } from './paraphrase.js';
+import { getSummarizedText } from './summarize.js';
+
+const DB_NAME = 'DVWritingAssistantDB';
+const DB_VERSION = 1;
+let db = null;
+
+async function initDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = (e) => {
+      const dbInstance = e.target.result;
+      if (!dbInstance.objectStoreNames.contains('documents')) {
+        dbInstance.createObjectStore('documents', { keyPath: 'id', autoIncrement: true });
+      }
+      if (!dbInstance.objectStoreNames.contains('citations')) {
+        dbInstance.createObjectStore('citations', { keyPath: 'id', autoIncrement: true });
+      }
+    };
+    request.onsuccess = (e) => { db = e.target.result; resolve(db); };
+    request.onerror = (e) => reject(e.target.error);
+  });
+}
+
+async function saveDocumentToDB(content) {
+  if (!db) await initDB();
+  return new Promise((resolve, reject) => {
+    const store = db.transaction('documents', 'readwrite').objectStore('documents');
+    const req = store.add({ content, updatedAt: new Date().toISOString(), snippet: content.substring(0, 50) + '...' });
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function getSavedDocuments() {
+  if (!db) await initDB();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction('documents', 'readonly').objectStore('documents').getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function deleteDocumentFromDB(id) {
+  if (!db) await initDB();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction('documents', 'readwrite').objectStore('documents').delete(Number(id));
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+async function saveCitationToDB(citation) {
+  if (!db) await initDB();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction('citations', 'readwrite').objectStore('citations').add(citation);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function getStoredCitations() {
+  if (!db) await initDB();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction('citations', 'readonly').objectStore('citations').getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function deleteCitationFromDB(id) {
+  if (!db) await initDB();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction('citations', 'readwrite').objectStore('citations').delete(Number(id));
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+const spinner = document.getElementById('screen-center-spinner');
+const spinnerText = document.getElementById('spinner-status-text');
+function showSpinner(status = 'Processing...') { spinnerText.textContent = status; spinner.classList.add('active'); }
+function hideSpinner() { spinner.classList.remove('active'); }
+
+function showModalDialog(title, message, isConfirm = false) {
+  return new Promise((resolve) => {
+    const host = document.getElementById('dialog-host');
+    host.style.display = 'block';
+    host.innerHTML = `
+      <div class="custom-dialog-backdrop">
+        <div class="custom-dialog-card">
+          <h3 style="font-size:22px; font-weight:700;">${title}</h3>
+          <p style="line-height:1.5;">${message}</p>
+          <div class="dialog-actions">
+            ${isConfirm ? '<button class="secondary-btn" id="dialog-cancel-btn">Cancel</button>' : ''}
+            <button class="primary-btn" id="dialog-confirm-btn">OK</button>
+          </div>
+        </div>
+      </div>`;
+    document.getElementById('dialog-confirm-btn').onclick = () => { host.style.display = 'none'; host.innerHTML = ''; resolve(true); };
+    if (isConfirm) {
+      document.getElementById('dialog-cancel-btn').onclick = () => { host.style.display = 'none'; host.innerHTML = ''; resolve(false); };
+    }
+  });
+}
+
+const undoStack = [];
+const redoStack = [];
+let isUndoRedoAction = false;
+function recordEditorState(val) {
+  if (isUndoRedoAction) return;
+  if (undoStack.length === 0 || undoStack[undoStack.length - 1] !== val) {
+    undoStack.push(val);
+    redoStack.length = 0;
+    if (undoStack.length > 50) undoStack.shift();
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await initDB();
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(err => console.warn('SW err:', err));
+  }
+
+  const editor = document.getElementById('main-editor');
+  const renderedView = document.getElementById('grammar-rendered-view');
+  const resultsArea = document.getElementById('results-display-area');
+  const leftSidebar = document.getElementById('sidebar-left');
+  const rightSidebar = document.getElementById('sidebar-right');
+  const fileInput = document.getElementById('file-import-input');
+
+  recordEditorState(editor.value);
+  editor.addEventListener('input', () => recordEditorState(editor.value));
+
+  document.getElementById('open-left-sidebar').onclick = () => leftSidebar.classList.add('active');
+  document.getElementById('open-right-sidebar').onclick = () => rightSidebar.classList.add('active');
+  document.querySelectorAll('.close-sidebar').forEach(btn => {
+    btn.onclick = () => { leftSidebar.classList.remove('active'); rightSidebar.classList.remove('active'); };
+  });
+
+  document.getElementById('btn-exit-app').onclick = () => {
+    rightSidebar.classList.remove('active');
+    leftSidebar.classList.remove('active');
+    document.querySelectorAll('.full-modal').forEach(m => m.classList.remove('active'));
+    editor.scrollIntoView({ behavior: 'smooth' });
+    editor.focus();
+  };
+
+  document.querySelectorAll('[data-modal]').forEach(trigger => {
+    trigger.addEventListener('click', () => {
+      const modalId = trigger.getAttribute('data-modal');
+      const targetModal = document.getElementById(modalId);
+      if (targetModal) {
+        if (modalId === 'modal-saved-files') loadSavedFilesView();
+        targetModal.classList.add('active');
+      }
+    });
+  });
+
+  document.querySelectorAll('.modal-back-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const modal = e.target.closest('.full-modal');
+      if (modal) modal.classList.remove('active');
+    });
+  });
+
+  const themeBtn = document.getElementById('btn-toggle-theme');
+  const themeLabel = document.getElementById('theme-label-text');
+  themeBtn.onclick = () => {
+    const isDark = document.body.getAttribute('data-theme') === 'dark';
+    if (isDark) { document.body.removeAttribute('data-theme'); themeLabel.textContent = 'Dark Mode: Off'; }
+    else { document.body.setAttribute('data-theme', 'dark'); themeLabel.textContent = 'Dark Mode: On'; }
+  };
+
+  const fontSlider = document.getElementById('font-scale-slider');
+  const fontValLabel = document.getElementById('font-size-val');
+  fontSlider.oninput = (e) => {
+    const val = e.target.value;
+    document.documentElement.style.setProperty('--font-size-base', `${val}px`);
+    fontValLabel.textContent = `${val}px`;
+  };
+
+  document.getElementById('tool-paste').onclick = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) { showModalDialog('Clipboard Empty', 'No text found on clipboard to paste.'); return; }
+      editor.value += (editor.value ? '\n' : '') + text;
+      recordEditorState(editor.value);
+      showModalDialog('Pasted', 'Text pasted successfully into the editor.');
+    } catch (e) {
+      showModalDialog('Clipboard Access', 'Paste manually or enable browser clipboard permissions.');
+    }
+  };
+  document.getElementById('tool-copy').onclick = async () => {
+    if (!editor.value.trim()) { showModalDialog('Editor Empty', 'There is no text to copy.'); return; }
+    await navigator.clipboard.writeText(editor.value);
+    showModalDialog('Success', 'Editor text copied to clipboard!');
+  };
+  document.getElementById('tool-clear').onclick = async () => {
+    if (!editor.value) return;
+    const confirm = await showModalDialog('Clear Editor', 'Delete all text currently inside the editor?', true);
+    if (confirm) {
+      recordEditorState(editor.value);
+      editor.value = '';
+      recordEditorState('');
+      resultsArea.style.display = 'none';
+      renderedView.style.display = 'none';
+      editor.style.display = 'block';
+    }
+  };
+  document.getElementById('tool-undo').onclick = () => {
+    if (undoStack.length <= 1) { showModalDialog('Undo', 'No prior actions to undo.'); return; }
+    isUndoRedoAction = true;
+    redoStack.push(undoStack.pop());
+    editor.value = undoStack[undoStack.length - 1];
+    isUndoRedoAction = false;
+  };
+  document.getElementById('tool-redo').onclick = () => {
+    if (redoStack.length === 0) { showModalDialog('Redo', 'No actions to redo.'); return; }
+    isUndoRedoAction = true;
+    const next = redoStack.pop();
+    undoStack.push(next);
+    editor.value = next;
+    isUndoRedoAction = false;
+  };
+  document.getElementById('tool-import').onclick = () => { fileInput.value = ''; fileInput.click(); };
+  fileInput.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      editor.value = evt.target.result;
+      recordEditorState(editor.value);
+      showModalDialog('Imported', `Successfully loaded "${file.name}" into editor.`);
+    };
+    reader.readAsText(file);
+  };
+
+  document.getElementById('tile-save-doc').onclick = async () => {
+    if (!editor.value.trim()) { showModalDialog('Empty Draft', 'Please write something before saving.'); return; }
+    await saveDocumentToDB(editor.value);
+    showModalDialog('Saved', 'Document safely stored in IndexedDB.');
+  };
+
+  document.getElementById('tile-paraphrase').onclick = async () => {
+    const text = editor.value.trim();
+    if (!text) return showModalDialog('Text Required', 'Enter text to paraphrase.');
+    showSpinner('Paraphrasing text with Hugging Face models...');
+    try { displayParaphraseResults(await getParaphrasedAlternatives(text)); }
+    catch (err) { showModalDialog('Paraphraser', err.message); }
+    finally { hideSpinner(); }
+  };
+  document.getElementById('tile-summarize').onclick = async () => {
+    const text = editor.value.trim();
+    if (!text) return showModalDialog('Text Required', 'Enter text to summarize.');
+    showSpinner('Distilling summary...');
+    try { displaySingleResult('Summary Result', await getSummarizedText(text)); }
+    catch (err) { showModalDialog('Summarizer', err.message); }
+    finally { hideSpinner(); }
+  };
+  document.getElementById('tile-grammar').onclick = async () => {
+    const text = editor.value.trim();
+    if (!text) return showModalDialog('Text Required', 'Enter text to check grammar.');
+    showSpinner('Analyzing grammar with LanguageTool...');
+    try {
+      const matches = await checkGrammar(text);
+      if (matches.length === 0) {
+        resultsArea.style.display = 'block';
+        resultsArea.innerHTML = `<div class="results-card"><h3 style="color:var(--success);">No Grammar Errors Found</h3><p>Your draft adheres cleanly to grammatical standards.</p></div>`;
+        return;
+      }
+      displayGrammarResults(matches, text);
+    } catch (err) { showModalDialog('Grammar Checker', err.message); }
+    finally { hideSpinner(); }
+  };
+
+  document.getElementById('tile-citation').onclick = () => { document.getElementById('modal-biblio-manager').classList.add('active'); renderCitationsList(); };
+  document.getElementById('tile-bibliography').onclick = () => { document.getElementById('modal-biblio-manager').classList.add('active'); renderCitationsList(); };
+
+  document.getElementById('btn-search-doi').onclick = async () => {
+    const q = document.getElementById('citation-query-input').value.trim();
+    if (!q) return showModalDialog('Query Needed', 'Enter a DOI.');
+    showSpinner('Retrieving DOI metadata via Crossref...');
+    try {
+      const cit = await fetchCitationByDOI(q);
+      await saveCitationToDB(cit);
+      showModalDialog('Success', 'APA Citation resolved and stored in Bibliography.');
+      renderCitationsList();
+    } catch (e) { showModalDialog('DOI Lookup Failed', e.message); }
+    finally { hideSpinner(); }
+  };
+  document.getElementById('btn-search-book').onclick = async () => {
+    const q = document.getElementById('citation-query-input').value.trim();
+    if (!q) return showModalDialog('Query Needed', 'Enter a book title.');
+    showSpinner('Fetching catalog details via Open Library...');
+    try {
+      const cit = await fetchCitationByBookTitle(q);
+      await saveCitationToDB(cit);
+      showModalDialog('Success', 'Book reference formatted and added to Bibliography.');
+      renderCitationsList();
+    } catch (e) { showModalDialog('Search Failed', e.message); }
+    finally { hideSpinner(); }
+  };
+
+  document.getElementById('export-biblio-btn').onclick = async () => {
+    const citations = await getStoredCitations();
+    if (citations.length === 0) { showModalDialog('Bibliography Empty', 'No references saved.'); return; }
+    await navigator.clipboard.writeText(citations.map((c, i) => `[${i + 1}] ${c.apa}`).join('\n\n'));
+    showModalDialog('Exported', 'Bibliography copied to clipboard as plain text!');
+  };
+
+  document.getElementById('btn-share-app').onclick = async () => {
+    if (navigator.share) {
+      try { await navigator.share({ title: 'DV-Writing Assistant', text: 'Check out DV-Writing Assistant!', url: window.location.href }); } catch (e) {}
+    } else { showModalDialog('Share Link', window.location.href); }
+  };
+
+  let deferredPrompt;
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; });
+  document.getElementById('btn-install-pwa').onclick = () => {
+    if (deferredPrompt) deferredPrompt.prompt();
+    else showModalDialog('Install PWA', 'Tap the 3 dots in your Android Chrome browser and tap "Add to Home screen".');
+  };
+
+  document.querySelectorAll('.nav-arrow').forEach(arrow => {
+    arrow.addEventListener('click', () => {
+      const el = document.getElementById(arrow.getAttribute('data-target'));
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    });
+  });
+
+  const devBioFull = document.getElementById('dev-bio-full');
+  const devBioBtn = document.getElementById('btn-toggle-dev-bio');
+  if (devBioBtn) {
+    devBioBtn.onclick = () => {
+      if (devBioFull.style.display === 'none') { devBioFull.style.display = 'block'; devBioBtn.textContent = 'Show Less'; }
+      else { devBioFull.style.display = 'none'; devBioBtn.textContent = 'Show More'; }
+    };
+  }
+});
+
+function createHorizontalOutputActions(textToActOn) {
+  const enc = encodeURIComponent(textToActOn);
+  return `
+    <div class="output-actions-horizontal">
+      <button class="output-action-btn btn-copy-out" data-text="${enc}">
+        <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+        <span>Copy</span>
+      </button>
+      <button class="output-action-btn btn-share-out" data-text="${enc}">
+        <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
+        <span>Share</span>
+      </button>
+      <button class="output-action-btn btn-replace" data-text="${enc}">
+        <svg viewBox="0 0 24 24"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+        <span>Replace in Editor</span>
+      </button>
+    </div>`;
+}
+
+function attachOutputActionListeners(scope) {
+  scope.querySelectorAll('.btn-copy-out').forEach(b => {
+    b.onclick = async () => { await navigator.clipboard.writeText(decodeURIComponent(b.getAttribute('data-text'))); showModalDialog('Copied', 'Output copied to clipboard.'); };
+  });
+  scope.querySelectorAll('.btn-share-out').forEach(b => {
+    b.onclick = async () => {
+      const text = decodeURIComponent(b.getAttribute('data-text'));
+      if (navigator.share) { try { await navigator.share({ title: 'DV-Writing Output', text }); } catch (e) {} }
+      else { await navigator.clipboard.writeText(text); showModalDialog('Share', 'Output copied to clipboard for manual sharing.'); }
+    };
+  });
+  scope.querySelectorAll('.btn-replace').forEach(b => {
+    b.onclick = () => {
+      const text = decodeURIComponent(b.getAttribute('data-text'));
+      const editor = document.getElementById('main-editor');
+      editor.value = text;
+      recordEditorState(text);
+      document.getElementById('grammar-rendered-view').style.display = 'none';
+      editor.style.display = 'block';
+      editor.scrollIntoView({ behavior: 'smooth' });
+      showModalDialog('Applied', 'Replacement applied to the primary editor.');
+    };
+  });
+}
+
+function displayParaphraseResults(alternatives) {
+  const container = document.getElementById('results-display-area');
+  container.style.display = 'block';
+  let html = `<div class="results-card"><h3>Paraphrased Alternatives</h3>`;
+  alternatives.forEach(alt => { html += `<div class="result-item-box"><p>${alt}</p>${createHorizontalOutputActions(alt)}</div>`; });
+  container.innerHTML = html + `</div>`;
+  attachOutputActionListeners(container);
+  container.scrollIntoView({ behavior: 'smooth' });
+}
+
+function displaySingleResult(title, text) {
+  const container = document.getElementById('results-display-area');
+  container.style.display = 'block';
+  container.innerHTML = `<div class="results-card"><h3>${title}</h3><div class="result-item-box"><p>${text}</p>${createHorizontalOutputActions(text)}</div></div>`;
+  attachOutputActionListeners(container);
+  container.scrollIntoView({ behavior: 'smooth' });
+}
+
+function displayGrammarResults(matches, originalText) {
+  const container = document.getElementById('results-display-area');
+  const editor = document.getElementById('main-editor');
+  const renderedView = document.getElementById('grammar-rendered-view');
+  const { html, errorCount } = renderGrammarErrors(originalText, matches);
+  renderedView.innerHTML = html;
+  editor.style.display = 'none';
+  renderedView.style.display = 'block';
+  container.style.display = 'block';
+  let listHtml = `<div class="results-card"><div style="display:flex; justify-content:space-between; align-items:center;"><h3>Grammar Diagnostics (${errorCount})</h3><button class="secondary-btn" id="exit-grammar-view">Exit Inspection</button></div>`;
+  matches.forEach(m => {
+    const errorWord = originalText.substring(m.offset, m.offset + m.length);
+    const replacement = m.replacements[0]?.value || '';
+    const suggestedSentence = originalText.substring(0, m.offset) + replacement + originalText.substring(m.offset + m.length);
+    listHtml += `<div class="result-item-box"><p><strong>Issue:</strong> ${m.message}</p><p><strong>Found:</strong> <span style="text-decoration:line-through; color:var(--error);">${errorWord}</span></p><p><strong>Correction:</strong> <span style="color:var(--success); font-weight:700;">${replacement || '[Remove]'}</span></p>${createHorizontalOutputActions(suggestedSentence)}</div>`;
+  });
+  container.innerHTML = listHtml + `</div>`;
+  document.getElementById('exit-grammar-view').onclick = () => { renderedView.style.display = 'none'; editor.style.display = 'block'; container.style.display = 'none'; };
+  attachOutputActionListeners(container);
+  container.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function renderCitationsList() {
+  const container = document.getElementById('active-citations-list');
+  const citations = await getStoredCitations();
+  if (citations.length === 0) { container.innerHTML = `<p style="text-align:center; padding:16px;">No citations in bibliography yet.</p>`; return; }
+  container.innerHTML = citations.map(c => `
+    <div class="result-item-box">
+      <p style="font-weight:700;">${c.title}</p>
+      <p style="font-size:18px;"><strong>APA:</strong> ${c.apa}</p>
+      <p style="font-size:18px;"><strong>MLA:</strong> ${c.mla}</p>
+      ${createHorizontalOutputActions(c.apa)}
+      <div style="display:flex; justify-content:flex-end; margin-top:8px;"><button class="secondary-btn delete-cit-btn" data-id="${c.id}">Remove Citation</button></div>
+    </div>`).join('');
+  attachOutputActionListeners(container);
+  container.querySelectorAll('.delete-cit-btn').forEach(btn => {
+    btn.onclick = async () => { await deleteCitationFromDB(btn.getAttribute('data-id')); renderCitationsList(); };
+  });
+}
+
+async function loadSavedFilesView() {
+  const container = document.getElementById('saved-files-list');
+  const docs = await getSavedDocuments();
+  if (docs.length === 0) { container.innerHTML = `<p style="text-align:center; padding:20px;">No saved documents found.</p>`; return; }
+  container.innerHTML = docs.map(d => `
+    <div class="result-item-box">
+      <p style="font-weight:600;">Saved on ${new Date(d.updatedAt).toLocaleDateString()} at ${new Date(d.updatedAt).toLocaleTimeString()}</p>
+      <p>${d.snippet}</p>
+      ${createHorizontalOutputActions(d.content)}
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;"><button class="secondary-btn delete-doc-btn" data-id="${d.id}">Delete</button></div>
+    </div>`).join('');
+  attachOutputActionListeners(container);
+  container.querySelectorAll('.delete-doc-btn').forEach(btn => {
+    btn.onclick = async () => { await deleteDocumentFromDB(btn.getAttribute('data-id')); loadSavedFilesView(); };
+  });
+}
