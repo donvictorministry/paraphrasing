@@ -7,6 +7,7 @@ const ASSETS_TO_CACHE = [
   './language-tool.js',
   './citation.js',
   './paraphrase.js',
+  './rewrite.js',
   './summarize.js',
   './manifest.json'
 ];
