@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>DV-Writing Assistant</title>
+<meta name="theme-color" content="#DF1E5A">
+<link rel="manifest" href="manifest.json"><link rel="stylesheet" href="styles.css">
+<meta property="og:title" content="DV-Writing Assistant"><meta property="og:description" content="Paraphrase, summarize, check grammar and cite sources.">
+<meta property="og:type" content="website"><meta property="og:url" content="https://YOUR-USERNAME.github.io/dv-writing-assistant/">
+<meta property="og:image" content="https://example.com/og-image-placeholder.png"></head>
+<body>
+<header><button id="menuL" aria-label="Menu"><svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+<h2>DV-Writing Assistant</h2>
+<button id="menuR" aria-label="More"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></button></header>
+<main><h1>Create something great today</h1>
+<section class="card"><textarea id="ed" placeholder="Write, paste, or start with an action below"></textarea>
+<div class="row"><button class="ic" id="paste" aria-label="Paste"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+<button class="ic" id="copy" aria-label="Copy"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg></button>
+<button class="ic go" id="save" aria-label="Save"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></button></div>
+<div class="grid" id="tools"></div></section>
+<section id="out"></section></main>
+<div id="scrim"></div><nav id="dl" class="drawer left"></nav><nav id="dr" class="drawer right"></nav>
+<div id="pages"></div><div id="load"><i></i></div><div id="dlg"></div><div id="block"><h1>Android phones only</h1><p>Open DV-Writing Assistant on an Android phone.</p></div>
+<script src="language-tool.js"></script><script src="paraphrase.js"></script><script src="summarize.js"></script><script src="citation.js"></script><script src="app.js"></script>
+</body></html>
