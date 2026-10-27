@@ -79,6 +79,8 @@
 <section class="full-modal" id="modal-biblio-manager"><header class="modal-header"><button class="icon-btn modal-back-btn" aria-label="Back"><svg viewBox="0 0 24 24" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M15 5l-7 7 7 7"/></svg></button><h2>Bibliography</h2><button class="icon-btn" id="export-biblio-btn" aria-label="Export plain text"><svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg></button></header><div class="modal-body"><div class="editor-card"><label for="citation-query-input">Search book title or enter DOI:</label><input type="text" id="citation-query-input" placeholder="e.g. 10.1038/nature12373 or Hamlet" style="width:100%; padding:10px; border:1px solid var(--outline-color); border-radius:var(--radius-sm); background:var(--bg-color);"><div style="display:flex; gap: 8px;"><button class="primary-btn" id="btn-search-doi" style="flex:1;">Search DOI</button><button class="secondary-btn" id="btn-search-book" style="flex:1;">Search Title</button></div></div><div id="active-citations-list" style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px;"></div></div></section>
 </div>
 <div id="dialog-host" style="display:none;"></div>
+
+<script src="puzzle.js"></script>
 <script type="module" src="app.js"></script>
 
 <script src="translator.js"></script>
