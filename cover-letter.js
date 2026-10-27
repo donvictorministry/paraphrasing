@@ -57,7 +57,7 @@
         '<label class="' + P + '-f">A key achievement (optional)<textarea id="' + P + '-win" placeholder="e.g. I grew our newsletter audience by 40% in six months"></textarea></label>' +
         '<label class="' + P + '-f">Why this company? (optional)<textarea id="' + P + '-why" placeholder="e.g. of its focus on education"></textarea></label>' +
         '<label class="' + P + '-f">Tone<select id="' + P + '-tone"><option value="professional">Professional</option><option value="enthusiastic">Enthusiastic</option><option value="concise">Concise</option></select></label>' +
-        '<button class="' + P + '-go" id="' + P + '-go">Generate Cover Letter</button>' + + '<div id="' + P + '-out" style="display:flex;flex-direction:column;gap:16px"></div></div>';
+        '<button class="' + P + '-go" id="' + P + '-go">Generate Cover Letter</button>' + '<div id="' + P + '-out" style="display:flex;flex-direction:column;gap:16px"></div></div>';
       document.body.appendChild(page);
       var dlg = function (t, m) {
         var d = document.createElement('div'); d.className = P + '-dlg';
