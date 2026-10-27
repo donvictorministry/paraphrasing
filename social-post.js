@@ -53,7 +53,7 @@
         '<label class="' + P + '-f">Tone<select id="' + P + '-tone"><option value="friendly">Friendly</option><option value="professional">Professional</option><option value="excited">Excited</option><option value="inspirational">Inspirational</option></select></label>' +
         '<label class="' + P + '-chk"><input type="checkbox" id="' + P + '-tags" checked>Add hashtags</label>' +
         '<label class="' + P + '-chk"><input type="checkbox" id="' + P + '-cta" checked>Add a call to action</label>' +
-        '<button class="' + P + '-go" id="' + P + '-go">Write Posts</button>' + + '<div id="' + P + '-out" style="display:flex;flex-direction:column;gap:16px"></div></div>';
+        '<button class="' + P + '-go" id="' + P + '-go">Write Posts</button>' + '<div id="' + P + '-out" style="display:flex;flex-direction:column;gap:16px"></div></div>';
       document.body.appendChild(page);
       var dlg = function (t, m) {
         var d = document.createElement('div'); d.className = P + '-dlg';
@@ -96,7 +96,7 @@
         var body = pl === 'LinkedIn' ? topic.replace(/\n+/g, '\n\n') : topic.replace(/\n+/g, ' ');
         var asm = function (parts) { return parts.filter(Boolean).join('\n\n'); };
         var variants = [
-          ['Classic', function (useCta, useTags) { return asm([hooks[0] + ' ' + low(body.charAt(0)) + body.slice(1) === '' ? '' : hooks[0], body, useCta && wantCta ? ctas[0] : '', useTags ? tags : '']); }],
+          ['Classic', function (useCta, useTags) { return asm([hooks[0], body, useCta && wantCta ? ctas[0] : '', useTags ? tags : '']); }],
           ['Short', function (useCta, useTags) { return asm([cut(first, 140), useCta && wantCta ? ctas[1] : '', useTags ? tags : '']); }],
           ['Question', function (useCta, useTags) { return asm([kw.length ? 'Have you thought about ' + kw[0] + ' lately?' : 'What do you think?', body, useCta && wantCta ? ctas[2] : '', useTags ? tags : '']); }]
         ];
